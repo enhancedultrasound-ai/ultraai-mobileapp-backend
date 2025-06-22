@@ -1,0 +1,21 @@
+{
+  "functions": [
+    {
+      "name": "inference",
+      "runtime": "python-3.11",
+      "entrypoint": "src/main.py",
+      "events": [],
+      "schedule": "",
+      "timeout": 60,
+      "enabled": true,
+      "logging": true,
+      "execute": ["users", "guests"],
+      "vars": {
+        "APPWRITE_ENDPOINT": "https://cloud.appwrite.io/v1",
+        "APPWRITE_FUNCTION_PROJECT_ID": "6858607e002ce35c4ee4",
+        "APPWRITE_API_KEY": "standard_f954aaee94bea5575553f5dd067e26f994684b6207c91f8f3e98b02b1818f5ad3567c7243c73f3b073edc9e3c769be9ae9c288bbc3e9905ef4eeee5882940f1cd887e5049c591ca0670d5bbff3ef0b67ca96e72796c759364c2fc6098ea1827d09606f9369281259e88e73ad6d79fb2ee546a85eba4e5e2f4d595277acddeccf",
+        "MODEL_FILE_ID": "68564d0c0003bfbbcf81"
+      }
+    }
+  ]
+}

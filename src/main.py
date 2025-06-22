@@ -4,6 +4,10 @@ from appwrite.services.storage import Storage
 import io
 import torchvision.transforms as transforms
 import torchvision.models as models
+from PIL import Image
+import base64
+import json
+import numpy as np
 
 # Define Data Transformations
 transform = transforms.Compose([
@@ -14,36 +18,61 @@ transform = transforms.Compose([
 ])
 
 def main(context):
-    # Initialize Appwrite client
-    client = Client()
-    client.set_endpoint(context.get('APPWRITE_ENDPOINT'))
-    client.set_project(context.get('APPWRITE_FUNCTION_PROJECT_ID'))
-    client.set_key(context.get('APPWRITE_API_KEY'))
-    
-    # Retrieve model
-    storage = Storage(client)
-    model_file_id = context.get('MODEL_FILE_ID')
-    model_bytes = storage.get_file_download(model_file_id)
-    buffer = io.BytesIO(model_bytes)
-    
-    # Load model
-    model = models.mobilenet_v3_small(pretrained=True)
-    model.load_state_dict(torch.load(buffer, map_location=torch.device('cpu')))
-    model.eval()  # Critical for inference[2]
-    
-    # Process input
-    input_data = context.req.body  # For POST requests
-    input_tensor = torch.tensor(input_data)
-    input_tensor = Image.fromarray(input_tensor.squeeze(), mode='L')
-    input_tensor = transform(input_tensor).unsqueeze(0)
-    
-    
-    # Run inference
-    with torch.no_grad():
-        output = model(input_tensor)
-        _, predicted = torch.max(output, 1)
-    
-    return context.res.json({
-        "predictions": predicted.item().tolist(),
-        "model_version": "1.0"
-    })
+    try:
+        # Initialize Appwrite client
+        client = Client()
+        client.set_endpoint(context.get('APPWRITE_ENDPOINT'))
+        client.set_project(context.get('APPWRITE_FUNCTION_PROJECT_ID'))
+        client.set_key(context.get('APPWRITE_API_KEY'))
+        
+        # Retrieve model
+        storage = Storage(client)
+        model_file_id = context.get('MODEL_FILE_ID')
+        model_bytes = storage.get_file_download(model_file_id)
+        buffer = io.BytesIO(model_bytes)
+        
+        # Load model
+        model = models.mobilenet_v3_small(pretrained=True)
+        model.load_state_dict(torch.load(buffer, map_location=torch.device('cpu')))
+        model.eval()  # Critical for inference
+        
+        # Process input
+        input_data = context.req.body  # For POST requests
+        
+        # Parse JSON input
+        if isinstance(input_data, str):
+            input_data = json.loads(input_data)
+        
+        # Handle base64 encoded image
+        if 'image' in input_data:
+            # Decode base64 image
+            image_data = base64.b64decode(input_data['image'])
+            image = Image.open(io.BytesIO(image_data))
+        else:
+            # Assume input_data is already image data
+            if isinstance(input_data, list):
+                # Convert list to numpy array
+                input_array = np.array(input_data, dtype=np.uint8)
+                image = Image.fromarray(input_array, mode='L')
+            else:
+                raise ValueError("Invalid input format. Expected 'image' field with base64 data or image array.")
+        
+        # Apply transformations
+        input_tensor = transform(image).unsqueeze(0)
+        
+        # Run inference
+        with torch.no_grad():
+            output = model(input_tensor)
+            _, predicted = torch.max(output, 1)
+        
+        return context.res.json({
+            "predictions": predicted.item(),
+            "model_version": "1.0",
+            "status": "success"
+        })
+        
+    except Exception as e:
+        return context.res.json({
+            "error": str(e),
+            "status": "error"
+        }, 500)
